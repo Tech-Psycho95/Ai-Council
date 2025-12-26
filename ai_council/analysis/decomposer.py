@@ -34,14 +34,20 @@ class BasicTaskDecomposer(TaskDecomposer):
         subtasks = []
         content = task.content.strip()
         
-        # Try different decomposition strategies
+        # Try different decomposition strategies in order of preference
         subtasks.extend(self._decompose_by_explicit_steps(task, content))
         
-        if not subtasks:
-            subtasks.extend(self._decompose_by_conjunctions(task, content))
+        # If explicit steps didn't find enough subtasks, try conjunctions
+        if len(subtasks) <= 1:
+            conjunction_subtasks = self._decompose_by_conjunctions(task, content)
+            if len(conjunction_subtasks) > len(subtasks):
+                subtasks = conjunction_subtasks
         
-        if not subtasks:
-            subtasks.extend(self._decompose_by_task_types(task, content))
+        # If still no good decomposition, try by task types
+        if len(subtasks) <= 1:
+            task_type_subtasks = self._decompose_by_task_types(task, content)
+            if len(task_type_subtasks) > len(subtasks):
+                subtasks = task_type_subtasks
         
         # If no decomposition found, create a single subtask
         if not subtasks:
@@ -139,24 +145,17 @@ class BasicTaskDecomposer(TaskDecomposer):
         """Decompose task by explicit step indicators."""
         subtasks = []
         
-        # Look for numbered steps
-        step_patterns = [
-            r'(\d+)\.\s*([^.]+(?:\.[^.]*)*)',
-            r'step\s+(\d+):\s*([^\n]+)',
-            r'(\d+)\)\s*([^)]+(?:\)[^)]*)*)',
-            r'first[,:]?\s*([^\n.]+)',
-            r'second[,:]?\s*([^\n.]+)',
-            r'third[,:]?\s*([^\n.]+)',
-            r'then[,:]?\s*([^\n.]+)',
-            r'next[,:]?\s*([^\n.]+)',
-            r'finally[,:]?\s*([^\n.]+)'
-        ]
+        # Try numbered steps first (1. 2. 3.)
+        numbered_pattern = r'(\d+)\.\s*([^0-9]+?)(?=\s*\d+\.|$)'
+        numbered_matches = list(re.finditer(numbered_pattern, content, re.IGNORECASE | re.MULTILINE | re.DOTALL))
         
-        for pattern in step_patterns:
-            matches = re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE)
-            for match in matches:
-                step_content = match.group(-1).strip()  # Last group is always the content
-                if len(step_content) > 10:  # Only meaningful steps
+        if len(numbered_matches) >= 2:  # Found multiple numbered steps
+            for match in numbered_matches:
+                step_content = match.group(2).strip()
+                step_content = re.sub(r'\s+', ' ', step_content)
+                step_content = step_content.strip('.,;')
+                
+                if len(step_content) > 10:
                     task_types = self._classify_content_task_types(step_content)
                     primary_task_type = task_types[0] if task_types else TaskType.REASONING
                     
@@ -166,6 +165,34 @@ class BasicTaskDecomposer(TaskDecomposer):
                         task_type=primary_task_type
                     )
                     subtasks.append(subtask)
+            return subtasks
+        
+        # Try sequence words by splitting sentences
+        # Look for sentences that start with sequence indicators
+        sentences = re.split(r'\.(?=\s+[A-Z])', content)
+        sequence_sentences = []
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if sentence and re.match(r'^(first|second|third|then|next|finally)[,:]?\s+', sentence, re.IGNORECASE):
+                # Remove the sequence word and clean up
+                clean_sentence = re.sub(r'^(first|second|third|then|next|finally)[,:]?\s+', '', sentence, flags=re.IGNORECASE)
+                clean_sentence = clean_sentence.strip('.,;')
+                
+                if len(clean_sentence) > 10:
+                    sequence_sentences.append(clean_sentence)
+        
+        if len(sequence_sentences) >= 2:  # Found multiple sequence steps
+            for step_content in sequence_sentences:
+                task_types = self._classify_content_task_types(step_content)
+                primary_task_type = task_types[0] if task_types else TaskType.REASONING
+                
+                subtask = Subtask(
+                    parent_task_id=task.id,
+                    content=step_content,
+                    task_type=primary_task_type
+                )
+                subtasks.append(subtask)
         
         return subtasks
     
@@ -173,7 +200,7 @@ class BasicTaskDecomposer(TaskDecomposer):
         """Decompose task by conjunction words (and, then, also, etc.)."""
         subtasks = []
         
-        # Split by common conjunctions
+        # Split by common conjunctions - use word boundaries to avoid partial matches
         conjunction_patterns = [
             r'\s+and\s+then\s+',
             r'\s+and\s+also\s+',
@@ -189,13 +216,17 @@ class BasicTaskDecomposer(TaskDecomposer):
         for pattern in conjunction_patterns:
             new_parts = []
             for part in parts:
-                new_parts.extend(re.split(pattern, part, flags=re.IGNORECASE))
+                split_parts = re.split(pattern, part, flags=re.IGNORECASE)
+                new_parts.extend(split_parts)
             parts = new_parts
         
         # Filter and create subtasks from meaningful parts
         for part in parts:
             part = part.strip()
-            if len(part) > 20:  # Only meaningful parts
+            # Remove common sentence starters and clean up
+            part = re.sub(r'^(and|then|also|additionally|furthermore|moreover)\s+', '', part, flags=re.IGNORECASE)
+            
+            if len(part) > 15:  # Only meaningful parts
                 task_types = self._classify_content_task_types(part)
                 primary_task_type = task_types[0] if task_types else TaskType.REASONING
                 

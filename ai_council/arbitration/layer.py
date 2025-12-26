@@ -352,3 +352,62 @@ class ConcreteArbitrationLayer(ArbitrationLayer):
                     validated.append(response)
         
         return validated
+
+
+class NoOpArbitrationLayer(ArbitrationLayer):
+    """
+    No-operation arbitration layer that passes through all responses without arbitration.
+    
+    This implementation is used when arbitration is disabled in the configuration.
+    """
+    
+    def __init__(self):
+        """Initialize the no-op arbitration layer."""
+        logger.info("NoOpArbitrationLayer initialized - arbitration disabled")
+    
+    def arbitrate(self, responses: List[AgentResponse]) -> ArbitrationResult:
+        """
+        Pass through all successful responses without arbitration.
+        
+        Args:
+            responses: List of agent responses
+            
+        Returns:
+            ArbitrationResult: All successful responses with no conflicts resolved
+        """
+        validated_responses = [r for r in responses if r.success]
+        logger.info(f"NoOpArbitrationLayer: passing through {len(validated_responses)} successful responses")
+        
+        return ArbitrationResult(
+            validated_responses=validated_responses,
+            conflicts_resolved=[]
+        )
+    
+    def detect_conflicts(self, responses: List[AgentResponse]) -> List[Conflict]:
+        """
+        Return empty list - no conflict detection in no-op mode.
+        
+        Args:
+            responses: List of agent responses
+            
+        Returns:
+            Empty list of conflicts
+        """
+        return []
+    
+    def resolve_contradiction(self, conflict: Conflict) -> Resolution:
+        """
+        Return default resolution - should not be called in no-op mode.
+        
+        Args:
+            conflict: The conflict to resolve
+            
+        Returns:
+            Default resolution choosing first response
+        """
+        logger.warning("resolve_contradiction called on NoOpArbitrationLayer")
+        return Resolution(
+            chosen_response_id=conflict.response_ids[0] if conflict.response_ids else "",
+            reasoning="No-op arbitration layer - no resolution performed",
+            confidence=1.0
+        )
