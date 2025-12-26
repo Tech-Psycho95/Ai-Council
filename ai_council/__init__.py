@@ -20,6 +20,10 @@ from .core.models import (
     RiskLevel,
 )
 
+from .main import AICouncil
+from .factory import AICouncilFactory
+from .utils.config import AICouncilConfig, load_config, create_default_config
+
 __all__ = [
     "Task",
     "Subtask", 
@@ -29,4 +33,9 @@ __all__ = [
     "TaskType",
     "ExecutionMode",
     "RiskLevel",
+    "AICouncil",
+    "AICouncilFactory",
+    "AICouncilConfig",
+    "load_config",
+    "create_default_config",
 ]
