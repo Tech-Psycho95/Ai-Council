@@ -251,6 +251,15 @@ async def _process_request_background(
                 session.add(db_response)
                 await session.commit()
                 
+                # Invalidate user stats cache
+                try:
+                    from app.core.redis import redis_client
+                    cache_key = redis_client.get_user_stats_key(str(db_request.user_id))
+                    await redis_client.client.delete(cache_key)
+                    logger.info(f"Invalidated stats cache for user {db_request.user_id}")
+                except Exception as cache_error:
+                    logger.warning(f"Failed to invalidate cache: {cache_error}")
+                
                 logger.info(
                     f"Request {request_id} completed: "
                     f"success={final_response.success}, "
