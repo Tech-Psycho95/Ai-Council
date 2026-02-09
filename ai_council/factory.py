@@ -191,11 +191,28 @@ class AICouncilFactory:
     
     def _create_model_instance(self, model_name: str, model_config: ModelConfig) -> AIModel:
         """Create a model instance based on configuration."""
-        # For now, create mock models since we don't have real API integrations
-        # In a production system, this would create real model instances based on provider
+        import os
         
+        # Try to import real adapters
+        try:
+            from web_app.backend.ai_adapters import create_model_adapter
+            
+            # Check if API key is available
+            api_key = os.getenv(model_config.api_key_env) if model_config.api_key_env else None
+            
+            if api_key:
+                # Create real model adapter
+                self.logger.info(f"Creating real {model_config.provider} adapter for {model_name}")
+                return create_model_adapter(model_config.provider, model_name, api_key)
+            else:
+                self.logger.warning(f"No API key found for {model_name}, using mock model")
+        except ImportError:
+            self.logger.warning(f"Real adapters not available, using mock model for {model_name}")
+        except Exception as e:
+            self.logger.warning(f"Failed to create real adapter for {model_name}: {str(e)}, using mock")
+        
+        # Fallback to mock models
         if model_config.provider == "openai":
-            # Create OpenAI-style mock model
             if "gpt-4" in model_name.lower():
                 return MockModelFactory.create_specialized_model(
                     model_name, "reasoning", "high"
@@ -204,13 +221,17 @@ class AICouncilFactory:
                 return MockModelFactory.create_fast_model(model_name)
         
         elif model_config.provider == "anthropic":
-            # Create Anthropic-style mock model
             return MockModelFactory.create_specialized_model(
                 model_name, "research", "high"
             )
         
+        elif model_config.provider in ["google", "groq", "mistral"]:
+            # Create appropriate mock for these providers
+            return MockModelFactory.create_specialized_model(
+                model_name, "reasoning", "high"
+            )
+        
         else:
-            # Create generic mock model
             return MockModelFactory.create_fast_model(model_name)
     
     def _create_model_capabilities(self, model_config: ModelConfig) -> ModelCapabilities:

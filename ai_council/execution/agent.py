@@ -469,13 +469,13 @@ class BaseExecutionAgent(ExecutionAgent):
         from ..core.models import TaskType
         
         instructions = {
-            TaskType.REASONING: "Please provide step-by-step logical reasoning for your answer.",
-            TaskType.RESEARCH: "Please provide well-researched information with sources when possible.",
-            TaskType.CODE_GENERATION: "Please provide clean, well-commented code with explanations.",
-            TaskType.DEBUGGING: "Please analyze the issue systematically and provide a clear solution.",
-            TaskType.CREATIVE_OUTPUT: "Please be creative while maintaining quality and coherence.",
-            TaskType.FACT_CHECKING: "Please verify information carefully and cite sources.",
-            TaskType.VERIFICATION: "Please double-check all claims and provide evidence."
+            TaskType.REASONING: "Please provide comprehensive step-by-step logical reasoning with detailed explanations.",
+            TaskType.RESEARCH: "Please provide thorough, well-researched information with detailed explanations and sources when possible.",
+            TaskType.CODE_GENERATION: "Please provide clean, well-commented code with detailed explanations and examples.",
+            TaskType.DEBUGGING: "Please analyze the issue systematically and provide a detailed solution with explanations.",
+            TaskType.CREATIVE_OUTPUT: "Please be creative and provide detailed, engaging content while maintaining quality and coherence.",
+            TaskType.FACT_CHECKING: "Please verify information carefully, provide detailed analysis, and cite sources.",
+            TaskType.VERIFICATION: "Please thoroughly check all claims and provide detailed evidence and explanations."
         }
         
         return instructions.get(task_type)
@@ -489,15 +489,17 @@ class BaseExecutionAgent(ExecutionAgent):
         Returns:
             int: Maximum tokens to request
         """
-        # Base token count
-        base_tokens = 500
+        # Base token count - increased for more detailed responses
+        base_tokens = 2000
         
         # Adjust based on task complexity (inferred from content length)
         content_length = len(subtask.content)
         if content_length > 1000:
-            base_tokens = 1500
+            base_tokens = 4000  # Very detailed for complex queries
         elif content_length > 500:
-            base_tokens = 1000
+            base_tokens = 3000  # Detailed for medium queries
+        elif content_length > 200:
+            base_tokens = 2500  # Good detail for normal queries
         
         # Adjust based on accuracy requirements
         if subtask.accuracy_requirement > 0.9:

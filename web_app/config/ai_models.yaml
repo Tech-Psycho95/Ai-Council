@@ -1,0 +1,119 @@
+# AI Council Configuration with Real AI APIs
+# Copy this to config/ai_council.yaml and add your API keys
+
+execution:
+  default_mode: balanced
+  max_parallel_executions: 3
+  max_retries: 3
+  default_timeout_seconds: 60.0
+  enable_arbitration: true
+  enable_synthesis: true
+
+cost:
+  max_cost_per_request: 1.0
+  currency: USD
+  enable_cost_tracking: true
+
+logging:
+  level: INFO
+  format_json: false
+  include_timestamp: true
+  include_caller: false
+
+# Model Configurations
+# Uncomment and add your API keys to enable real models
+
+models:
+  # OpenAI GPT-4
+  gpt-4:
+    enabled: false  # Set to true and add API key
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    capabilities:
+      - reasoning
+      - code_generation
+      - creative_output
+    cost_per_input_token: 0.00003
+    cost_per_output_token: 0.00006
+    max_context_length: 8192
+    timeout_seconds: 60.0
+
+  # OpenAI GPT-3.5 Turbo
+  gpt-3.5-turbo:
+    enabled: false  # Set to true and add API key
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    capabilities:
+      - reasoning
+      - creative_output
+    cost_per_input_token: 0.0000015
+    cost_per_output_token: 0.000002
+    max_context_length: 16385
+    timeout_seconds: 30.0
+
+  # Anthropic Claude 3
+  claude-3-opus:
+    enabled: false  # Set to true and add API key
+    provider: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    capabilities:
+      - reasoning
+      - research
+      - fact_checking
+    cost_per_input_token: 0.000015
+    cost_per_output_token: 0.000075
+    max_context_length: 200000
+    timeout_seconds: 60.0
+
+  # Anthropic Claude 3 Sonnet
+  claude-3-sonnet:
+    enabled: false  # Set to true and add API key
+    provider: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    capabilities:
+      - reasoning
+      - research
+    cost_per_input_token: 0.000003
+    cost_per_output_token: 0.000015
+    max_context_length: 200000
+    timeout_seconds: 45.0
+
+  # Google Gemini Pro
+  gemini-pro:
+    enabled: false  # Set to true and add API key
+    provider: google
+    api_key_env: GOOGLE_API_KEY
+    capabilities:
+      - reasoning
+      - research
+      - creative_output
+    cost_per_input_token: 0.00000125
+    cost_per_output_token: 0.00000375
+    max_context_length: 32768
+    timeout_seconds: 45.0
+
+  # Groq Llama 3
+  llama-3-70b:
+    enabled: false  # Set to true and add API key
+    provider: groq
+    api_key_env: GROQ_API_KEY
+    capabilities:
+      - reasoning
+      - code_generation
+    cost_per_input_token: 0.00000059
+    cost_per_output_token: 0.00000079
+    max_context_length: 8192
+    timeout_seconds: 30.0
+
+  # Mistral Large
+  mistral-large:
+    enabled: false  # Set to true and add API key
+    provider: mistral
+    api_key_env: MISTRAL_API_KEY
+    capabilities:
+      - reasoning
+      - code_generation
+    cost_per_input_token: 0.000004
+    cost_per_output_token: 0.000012
+    max_context_length: 32768
+    timeout_seconds: 45.0

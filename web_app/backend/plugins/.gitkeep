@@ -1,0 +1,5 @@
+# Backend Plugins Directory
+
+This directory is reserved for backend-specific plugins and extensions.
+
+Currently unused - plugin system will be implemented in future versions.

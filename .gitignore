@@ -167,11 +167,14 @@ cython_debug/
 
 # AI Council specific
 ai_council_config.yaml
-data/
-cache/
+data/*
+!data/.gitkeep
+cache/*
+!cache/.gitkeep
 logs/
 *.log
-plugins/
+plugins/*
+!plugins/.gitkeep
 demo_config.yaml
 *_example.py
 usage_example.py

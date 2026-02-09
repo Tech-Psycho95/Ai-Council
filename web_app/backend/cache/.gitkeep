@@ -1,0 +1,5 @@
+# Backend Cache Directory
+
+This directory is reserved for caching API responses and temporary data.
+
+Currently unused - will be implemented in future versions.

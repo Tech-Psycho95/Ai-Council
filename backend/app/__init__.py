@@ -1,1 +1,0 @@
-"""AI Council Backend Application."""

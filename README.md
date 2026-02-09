@@ -6,6 +6,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Downloads](https://pepy.tech/badge/ai-council-orchestrator)](https://pepy.tech/project/ai-council-orchestrator)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![OSCG Contributors](https://img.shields.io/badge/OSCG-Contributors%20Welcome-brightgreen.svg)](./OSCG_CONTRIBUTORS.md)
 [![Tests](https://img.shields.io/badge/tests-95%20passing-green.svg)](./tests/)
 [![Code Coverage](https://img.shields.io/badge/coverage-45%25-yellow.svg)](./htmlcov/)
 [![Documentation](https://img.shields.io/badge/docs-comprehensive-brightgreen.svg)](./docs/)
@@ -60,6 +61,35 @@ print(f"Confidence: {response.overall_confidence:.2f}")
 print(f"Models Used: {', '.join(response.models_used)}")
 print(f"Cost: ${response.cost_breakdown.total_cost:.4f}")
 ```
+
+### Web Interface (Testing & Development)
+
+AI Council includes a web interface for easy testing and interaction:
+
+```bash
+# 1. Configure your API keys
+cd web_app/backend
+cp .env.example .env
+# Edit .env and add your API keys (Google Gemini, xAI Grok, etc.)
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Start the backend server
+python main.py
+
+# 4. Open the web interface
+# Navigate to http://localhost:8000 in your browser
+```
+
+**Web Interface Features:**
+- 🎯 Interactive query interface
+- 📊 Real-time response streaming
+- 💰 Cost and performance metrics
+- 🔍 Model selection and execution mode control
+- 📈 System health monitoring
+
+See [web_app/README.md](./web_app/README.md) for detailed setup instructions.
 
 ### Run Examples
 
@@ -202,22 +232,28 @@ print(f"Circuit Breakers: {status.circuit_breakers}")
 
 ## 📚 Documentation
 
-### Setup & Configuration
+### Core Documentation
 | Document | Description |
 |----------|-------------|
-| **[⚡ Quick Start](./docs/QUICK_START.md)** | Get running in 5 minutes |
-| **[🔧 Backend Setup](./backend/SETUP.md)** | Complete backend configuration guide |
-| **[🗄️ Database Schema](./backend/database-schema.sql)** | One-shot Supabase database setup |
+| **[📖 Getting Started](./docs/GETTING_STARTED.md)** | Complete setup and first steps |
+| **[📘 Usage Guide](./docs/usage/USAGE_GUIDE.md)** | Comprehensive usage examples |
+| **[🏗️ Architecture](./docs/architecture/ARCHITECTURE.md)** | System design and components |
+| **[📋 API Reference](./docs/API_REFERENCE.md)** | Complete API documentation |
+| **[🎯 Project Structure](./docs/PROJECT_STRUCTURE.md)** | Codebase organization |
 
-### Additional Resources
+### Web Interface
 | Document | Description |
 |----------|-------------|
-| **[✅ Setup Checklist](./docs/SETUP_CHECKLIST.md)** | Complete setup verification |
-| **[🔧 Troubleshooting](./docs/TROUBLESHOOTING.md)** | Common issues and solutions |
-| **[🗺️ Implementation Roadmap](./docs/IMPLEMENTATION_ROADMAP.md)** | Development roadmap |
-| **[🚀 Production Deployment](./docs/PRODUCTION_DEPLOYMENT_PLAN.md)** | Deploy to production |
-| **[🔑 Backend Docs](./backend/docs/)** | API keys, providers, configuration |
-| **[🚀 Examples](./examples/)** | Ready-to-run code examples |
+| **[🌐 Web App Guide](./web_app/README.md)** | Web interface setup and usage |
+| **[⚙️ Backend Configuration](./web_app/backend/.env.example)** | API keys and settings |
+
+### Advanced Topics
+| Document | Description |
+|----------|-------------|
+| **[🎯 Orchestrator Guide](./docs/ORCHESTRATOR_GUIDE.md)** | Advanced orchestration patterns |
+| **[⚡ Quick Reference](./docs/QUICK_REFERENCE.md)** | Common tasks and snippets |
+| **[📊 Business Case](./docs/business/BUSINESS_CASE.md)** | ROI and business value |
+| **[� Publishing Guide](./docs/PUBLISHING_GUIDE.md)** | How to publish to PyPI |e
 
 ## 🧪 Testing & Validation
 
@@ -312,6 +348,19 @@ We welcome contributions from the community! AI Council Orchestrator is designed
 - **📚 Well-Documented**: Comprehensive documentation and examples  
 - **🧪 Well-Tested**: High test coverage with multiple test types
 - **🏗️ Clean Architecture**: Clear separation of concerns
+
+### 🎓 For OSCG Contributors
+
+**Are you part of the Open Source Contributors Group (OSCG)?** We have a special guide just for you!
+
+👉 **[Read the OSCG Contributors Guide](./OSCG_CONTRIBUTORS.md)** 👈
+
+This guide includes:
+- Detailed project structure explanation
+- Environment setup with API keys
+- Ranked contribution tasks (Easy → Medium → Difficult)
+- Specific areas where you can contribute
+- What you can and cannot modify
 
 ### Quick Contributing Guide
 
