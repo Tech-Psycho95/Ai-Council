@@ -1,0 +1,5 @@
+# Data Directory
+
+This directory is reserved for storing application data, logs, and metrics.
+
+Currently unused - will be implemented in future versions.

@@ -1,0 +1,199 @@
+"""
+FastAPI backend for AI Council web interface.
+"""
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
+import asyncio
+import json
+import sys
+from pathlib import Path
+
+# Add ai_council to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from ai_council.main import AICouncil
+from ai_council.core.models import ExecutionMode
+
+app = FastAPI(title="AI Council API", version="1.0.0")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global AI Council instance
+ai_council = None
+
+
+class RequestModel(BaseModel):
+    query: str
+    mode: str = "balanced"
+
+
+class EstimateModel(BaseModel):
+    query: str
+    mode: str = "balanced"
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize AI Council on startup."""
+    global ai_council
+    try:
+        # Load environment variables
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        # Set config path
+        import os
+        config_path = Path(__file__).parent.parent.parent / "config" / "ai_council.yaml"
+        if config_path.exists():
+            os.environ['AI_COUNCIL_CONFIG'] = str(config_path)
+        
+        ai_council = AICouncil(config_path if config_path.exists() else None)
+        print("✓ AI Council initialized successfully")
+    except Exception as e:
+        print(f"✗ Failed to initialize AI Council: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "message": "AI Council API",
+        "version": "1.0.0",
+        "status": "operational"
+    }
+
+
+@app.get("/api/status")
+async def get_status():
+    """Get system status."""
+    try:
+        status = ai_council.get_system_status()
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/process")
+async def process_request(request: RequestModel):
+    """Process a user request."""
+    try:
+        # Map mode string to ExecutionMode
+        mode_map = {
+            "fast": ExecutionMode.FAST,
+            "balanced": ExecutionMode.BALANCED,
+            "best_quality": ExecutionMode.BEST_QUALITY
+        }
+        
+        mode = mode_map.get(request.mode.lower(), ExecutionMode.BALANCED)
+        
+        # Process the request
+        response = ai_council.process_request(request.query, mode)
+        
+        return {
+            "success": response.success,
+            "content": response.content,
+            "confidence": response.overall_confidence,
+            "models_used": response.models_used,
+            "execution_time": response.execution_metadata.total_execution_time if response.execution_metadata else 0,
+            "cost": response.cost_breakdown.total_cost if response.cost_breakdown else 0,
+            "execution_path": response.execution_metadata.execution_path if response.execution_metadata else [],
+            "error_message": response.error_message if not response.success else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/estimate")
+async def estimate_cost(request: EstimateModel):
+    """Estimate cost and time for a request."""
+    try:
+        mode_map = {
+            "fast": ExecutionMode.FAST,
+            "balanced": ExecutionMode.BALANCED,
+            "best_quality": ExecutionMode.BEST_QUALITY
+        }
+        
+        mode = mode_map.get(request.mode.lower(), ExecutionMode.BALANCED)
+        estimate = ai_council.estimate_cost(request.query, mode)
+        
+        return estimate
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze")
+async def analyze_tradeoffs(request: RequestModel):
+    """Analyze cost-quality trade-offs."""
+    try:
+        analysis = ai_council.analyze_tradeoffs(request.query)
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    await websocket.accept()
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            request_data = json.loads(data)
+            
+            query = request_data.get("query", "")
+            mode = request_data.get("mode", "balanced")
+            
+            # Send processing status
+            await websocket.send_json({
+                "type": "status",
+                "message": "Processing your request..."
+            })
+            
+            # Process request
+            mode_map = {
+                "fast": ExecutionMode.FAST,
+                "balanced": ExecutionMode.BALANCED,
+                "best_quality": ExecutionMode.BEST_QUALITY
+            }
+            
+            execution_mode = mode_map.get(mode.lower(), ExecutionMode.BALANCED)
+            response = ai_council.process_request(query, execution_mode)
+            
+            # Send result
+            await websocket.send_json({
+                "type": "result",
+                "success": response.success,
+                "content": response.content,
+                "confidence": response.overall_confidence,
+                "models_used": response.models_used,
+                "execution_time": response.execution_metadata.total_execution_time if response.execution_metadata else 0,
+                "cost": response.cost_breakdown.total_cost if response.cost_breakdown else 0,
+                "error_message": response.error_message if not response.success else None
+            })
+            
+    except WebSocketDisconnect:
+        print("WebSocket disconnected")
+    except Exception as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": str(e)
+        })
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

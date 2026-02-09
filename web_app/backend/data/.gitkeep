@@ -1,0 +1,5 @@
+# Backend Data Directory
+
+This directory is reserved for storing backend data, session info, and user data.
+
+Currently unused - will be implemented in future versions.
