@@ -457,5 +457,3 @@ Built with modern Python best practices and inspired by the need for intelligent
 **⭐ Star us on GitHub if AI Council Orchestrator helps your projects! ⭐**
 
 </div>
-
-[![ForkLens Graph](https://forklens.vercel.app/api/og?repo=shrixtacy/Ai-Council&active=12&total=13)](https://forklens.vercel.app/diagram/shrixtacy/Ai-Council)
