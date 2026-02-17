@@ -1,5 +1,16 @@
 const nodemailer = require('nodemailer');
 
+// HTML escape function to prevent XSS
+const escapeHtml = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
@@ -11,6 +22,9 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendOTPEmail = async (email, otp, name) => {
+  // Sanitize user-provided name to prevent XSS
+  const safeName = escapeHtml(name);
+  
   const mailOptions = {
     from: `"AI Council" <${process.env.EMAIL_USER}>`,
     to: email,
@@ -36,7 +50,7 @@ const sendOTPEmail = async (email, otp, name) => {
             <p>Multi-Agent Orchestration System</p>
           </div>
           <div class="content">
-            <h2>Welcome, ${name}!</h2>
+            <h2>Welcome, ${safeName}!</h2>
             <p>Thank you for registering with AI Council. To complete your registration, please verify your email address using the OTP below:</p>
             
             <div class="otp-box">

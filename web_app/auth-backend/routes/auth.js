@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
@@ -7,9 +8,10 @@ const Session = require('../models/Session');
 const { sendOTPEmail } = require('../utils/email');
 const { protect } = require('../middleware/auth');
 
-// Generate OTP
+// Generate OTP (cryptographically secure)
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Use crypto.randomInt for cryptographically secure random numbers
+  return crypto.randomInt(100000, 1000000).toString();
 };
 
 // Generate JWT Token
