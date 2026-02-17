@@ -69,27 +69,16 @@ jobs:
             // Check if issue was created by repo owner
             const isOwnerIssue = issueCreator.toLowerCase() === repoOwner.toLowerCase();
             
-            // Check if comment contains assignment request (more flexible matching)
+            // Check if comment contains assignment-related words (very flexible)
             const commentBody = comment.body.toLowerCase();
-            const assignmentKeywords = [
-              'assign me',
-              'assign this to me',
-              'i want to work on this',
-              'can i work on this',
-              'i would like to work',
-              'i want to contribute',
-              'i would like to contribute',
-              'interested in contributing',
-              'express my interest',
-              'can i take this',
-              'may i work on this'
-            ];
-            const wantsAssignment = assignmentKeywords.some(keyword => commentBody.includes(keyword));
+            const assignmentWords = ['assign', 'contribute', 'work', 'take', 'interested', 'help'];
+            const wantsAssignment = assignmentWords.some(word => commentBody.includes(word));
             
             console.log(`Issue creator: ${issueCreator}, Repo owner: ${repoOwner}, Is owner issue: ${isOwnerIssue}`);
-            console.log(`Commenter: ${commenter}, Wants assignment: ${wantsAssignment}`);
+            console.log(`Commenter: ${commenter}, Comment contains assignment words: ${wantsAssignment}`);
             console.log(`Comment body: "${commentBody.substring(0, 100)}..."`);
             
+            // If owner created the issue and someone (not owner) comments with assignment intent, assign them
             if (isOwnerIssue && wantsAssignment && commenter !== issueCreator) {
               // Check if issue is already assigned
               const currentAssignees = issue.assignees.map(a => a.login);
