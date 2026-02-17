@@ -1,0 +1,101 @@
+name: Issue Auto-Assignment
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  auto-assign-creator:
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-assign issue to creator
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const creator = issue.user.login;
+            const issueNumber = issue.number;
+            
+            // Assign the issue to the creator
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              assignees: [creator]
+            });
+            
+            // Add a comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🎯 **Issue Auto-Assigned!**\n\nHey @${creator}! This issue has been automatically assigned to you.\n\n✨ **Next Steps:**\n- Review the issue details carefully\n- Check CONTRIBUTING.md for guidelines\n- Start working on a solution\n- Create a PR when ready and link it to this issue\n\nHappy coding! 🚀`
+            });
+            
+            console.log(`Issue #${issueNumber} assigned to @${creator}`);
+
+  assign-on-comment:
+    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if repo owner created the issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const comment = context.payload.comment;
+            const issueCreator = issue.user.login;
+            const commenter = comment.user.login;
+            const issueNumber = issue.number;
+            
+            // Get repository owner
+            const repoOwner = context.repo.owner;
+            
+            // Check if issue was created by repo owner
+            const isOwnerIssue = issueCreator.toLowerCase() === repoOwner.toLowerCase();
+            
+            // Check if comment contains assignment request
+            const commentBody = comment.body.toLowerCase();
+            const assignmentKeywords = ['assign me', 'assign this to me', 'i want to work on this', 'can i work on this'];
+            const wantsAssignment = assignmentKeywords.some(keyword => commentBody.includes(keyword));
+            
+            console.log(`Issue creator: ${issueCreator}, Repo owner: ${repoOwner}, Is owner issue: ${isOwnerIssue}`);
+            console.log(`Commenter: ${commenter}, Wants assignment: ${wantsAssignment}`);
+            
+            if (isOwnerIssue && wantsAssignment && commenter !== issueCreator) {
+              // Check if issue is already assigned
+              const currentAssignees = issue.assignees.map(a => a.login);
+              
+              if (currentAssignees.length > 0) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `⚠️ **Already Assigned**\n\nHey @${commenter}! This issue is already assigned to: ${currentAssignees.map(a => `@${a}`).join(', ')}\n\nPlease check other open issues or wait for this one to become available. 🙏`
+                });
+              } else {
+                // Assign to the commenter
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [commenter]
+                });
+                
+                // Add confirmation comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `🎉 **Issue Assigned!**\n\nCongratulations @${commenter}! This issue has been assigned to you.\n\n📋 **Guidelines:**\n- Read the issue description carefully\n- Review CONTRIBUTING.md and CODE_OF_CONDUCT.md\n- Ask questions if anything is unclear\n- Link your PR to this issue when ready\n- Follow the project's coding standards\n\nGood luck! 💪`
+                });
+                
+                console.log(`Issue #${issueNumber} assigned to @${commenter}`);
+              }
+            }
