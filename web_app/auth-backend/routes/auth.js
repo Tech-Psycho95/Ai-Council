@@ -5,8 +5,36 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Session = require('../models/Session');
-const { sendOTPEmail } = require('../utils/email');
+const PasswordReset = require('../models/PasswordReset');
+const RateLimit = require('../models/RateLimit');
+const { sendOTPEmail, sendPasswordResetEmail, sendPasswordResetConfirmation } = require('../utils/email');
 const { protect } = require('../middleware/auth');
+
+// Password strength validation helper
+const validatePasswordStrength = (password) => {
+  const errors = [];
+  
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    errors.push('Password must contain at least one special character');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
 
 // Generate OTP (cryptographically secure)
 const generateOTP = () => {
@@ -276,6 +304,181 @@ router.get('/me', protect, async (req, res) => {
       lastLogin: req.user.lastLogin
     }
   });
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset
+// @access  Public
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { email } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    // Check rate limit (max 3 per hour per email)
+    const rateCheck = await RateLimit.checkRateLimit(email, 'forgot-password', 3, 3600000);
+    if (!rateCheck.allowed) {
+      console.log(`[SECURITY] Rate limit exceeded for password reset: ${email} from IP: ${ipAddress}`);
+      // Still return success message to not reveal rate limiting
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, you will receive a password reset link.'
+      });
+    }
+
+    // Log the attempt for security monitoring
+    await RateLimit.logAttempt(email, 'forgot-password', ipAddress, userAgent);
+    console.log(`[SECURITY] Password reset requested for: ${email} from IP: ${ipAddress}`);
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, you will receive a password reset link.'
+      });
+    }
+
+    // Delete any existing reset tokens for this user
+    await PasswordReset.deleteMany({ userId: user._id });
+
+    // Generate reset token
+    const resetToken = PasswordReset.generateToken();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Save token to database
+    await PasswordReset.create({
+      userId: user._id,
+      token: resetToken,
+      expiresAt
+    });
+
+    // Create reset URL
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+
+    // Send email
+    await sendPasswordResetEmail(email, resetUrl, user.name);
+
+    res.json({
+      success: true,
+      message: 'If an account exists with this email, you will receive a password reset link.'
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/auth/verify-reset-token/:token
+// @desc    Verify if reset token is valid
+// @access  Public
+router.get('/verify-reset-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const resetRecord = await PasswordReset.findValidToken(token);
+    if (!resetRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Return expiry time for countdown timer
+    res.json({
+      success: true,
+      message: 'Token is valid',
+      expiresAt: resetRecord.expiresAt
+    });
+  } catch (error) {
+    console.error('Verify reset token error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 8 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { token, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password does not meet strength requirements',
+        errors: passwordValidation.errors
+      });
+    }
+
+    // Find valid reset token
+    const resetRecord = await PasswordReset.findValidToken(token);
+    if (!resetRecord) {
+      console.log(`[SECURITY] Invalid/expired password reset token attempted from IP: ${ipAddress}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    // Get the user
+    const user = resetRecord.userId;
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update password
+    user.password = password;
+    await user.save();
+
+    // Mark token as used
+    resetRecord.used = true;
+    await resetRecord.save();
+
+    // Invalidate all existing sessions for security
+    await Session.updateMany({ userId: user._id }, { isActive: false });
+
+    // Log successful password reset
+    console.log(`[SECURITY] Password successfully reset for user: ${user.email} from IP: ${ipAddress}`);
+
+    // Send confirmation email
+    try {
+      await sendPasswordResetConfirmation(user.email, user.name);
+    } catch (emailError) {
+      console.error('Failed to send password reset confirmation email:', emailError);
+      // Don't fail the request if confirmation email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Password reset successful. Please login with your new password.'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 module.exports = router;

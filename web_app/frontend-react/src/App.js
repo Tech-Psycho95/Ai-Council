@@ -2,11 +2,14 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/authStore';
+import ErrorBoundary from './components/Errorboundary';
 
 // Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
 import Analytics from './pages/Analytics';
@@ -67,6 +70,14 @@ function App() {
           element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} 
         />
         <Route path="/verify-otp" element={<VerifyOTP />} />
+        <Route 
+          path="/forgot-password" 
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPassword />} 
+        />
+        <Route 
+          path="/reset-password/:token" 
+          element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPassword />} 
+        />
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
