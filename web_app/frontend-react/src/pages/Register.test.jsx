@@ -26,11 +26,11 @@ describe('Register Component', () => {
   it('renders registration form properly', () => {
     renderWithRouter(<Register />);
     
-    expect(screen.getByPlaceholderText(/John Doe/i)).toBeTruthy();
-    expect(screen.getByPlaceholderText(/you@example.com/i)).toBeTruthy();
+    expect(screen.getByPlaceholderText(/John Doe/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/you@example.com/i)).toBeInTheDocument();
     const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i);
     expect(passwordInputs).toHaveLength(2);
-    expect(screen.getByRole('button', { name: /Create account/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Create account/i })).toBeInTheDocument();
   });
 
   it('shows error if passwords do not match', async () => {
@@ -88,6 +88,38 @@ describe('Register Component', () => {
         password: 'password123',
       });
       expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Registration successful'));
+    });
+  });
+
+  it('shows error when API call fails', async () => {
+    authAPI.post.mockRejectedValueOnce({
+      response: {
+        data: {
+          message: 'Email already registered'
+        }
+      }
+    });
+    
+    renderWithRouter(<Register />);
+    
+    const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i);
+    fireEvent.change(screen.getByPlaceholderText(/John Doe/i), {
+      target: { value: 'Test User' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/you@example.com/i), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(passwordInputs[0], {
+      target: { value: 'password123' },
+    });
+    fireEvent.change(passwordInputs[1], {
+      target: { value: 'password123' },
+    });
+    
+    fireEvent.click(screen.getByRole('button', { name: /Create account/i }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Email already registered');
     });
   });
 });
