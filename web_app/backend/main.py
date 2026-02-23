@@ -1,7 +1,8 @@
 """
 FastAPI backend for AI Council web interface.
 """
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -11,68 +12,24 @@ import json
 import sys
 from pathlib import Path
 
-# Add ai_council to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from ai_council.main import AICouncil
 from ai_council.core.models import ExecutionMode
 
-app = FastAPI(title="AI Council API", version="1.0.0")
-
-# CORS configuration
-import os
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
-if allowed_origins_str:
-    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
-else:
-    # Default to localhost/local IPs for development
-    allowed_origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000"
-    ]
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Global AI Council instance
-ai_council = None
-
-
-class RequestModel(BaseModel):
-    query: str
-    mode: str = "balanced"
-
-
-class EstimateModel(BaseModel):
-    query: str
-    mode: str = "balanced"
-
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Initialize AI Council on startup."""
-    global ai_council
     try:
-        # Load environment variables
-        from dotenv import load_dotenv
-        load_dotenv()
-        
-        # Set config path
         import os
+
+        # Set config path
         config_path = Path(__file__).parent.parent.parent / "config" / "ai_council.yaml"
         if config_path.exists():
             os.environ['AI_COUNCIL_CONFIG'] = str(config_path)
         
-        ai_council = AICouncil(config_path if config_path.exists() else None)
+        ai_council_instance = AICouncil(config_path if config_path.exists() else None)
+        app.state.ai_council = ai_council_instance
         print("[OK] AI Council initialized successfully")
+        yield
     except RuntimeError as e:
         # Handle configuration validation errors gracefully without stack trace
         if "Configuration validation failed" in str(e):
@@ -95,6 +52,52 @@ async def startup_event():
         traceback.print_exc()
         raise
 
+app = FastAPI(title="AI Council API", version="1.0.0", lifespan=lifespan)
+
+# Load environment variables
+import os
+from dotenv import load_dotenv
+
+env_path = Path(__file__).parent / ".env"
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    load_dotenv()
+
+# CORS configuration
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+if allowed_origins_str:
+    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+else:
+    # Default to localhost/local IPs for development
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000"
+    ]
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def get_ai_council(request: Request) -> AICouncil:
+    """Dependency to get AI Council instance."""
+    return request.app.state.ai_council
+
+class RequestModel(BaseModel):
+    query: str
+    mode: str = "balanced"
+
+class EstimateModel(BaseModel):
+    query: str
+    mode: str = "balanced"
+
 
 @app.get("/")
 async def root():
@@ -107,7 +110,7 @@ async def root():
 
 
 @app.get("/api/status")
-async def get_status():
+async def get_status(ai_council: AICouncil = Depends(get_ai_council)):
     """Get system status."""
     try:
         status = ai_council.get_system_status()
@@ -117,7 +120,7 @@ async def get_status():
 
 
 @app.post("/api/process")
-async def process_request(request: RequestModel):
+async def process_request(request: RequestModel, ai_council: AICouncil = Depends(get_ai_council)):
     """Process a user request."""
     try:
         # Map mode string to ExecutionMode
@@ -149,7 +152,7 @@ async def process_request(request: RequestModel):
 
 
 @app.post("/api/estimate")
-async def estimate_cost(request: EstimateModel):
+async def estimate_cost(request: EstimateModel, ai_council: AICouncil = Depends(get_ai_council)):
     """Estimate cost and time for a request."""
     try:
         mode_map = {
@@ -167,7 +170,7 @@ async def estimate_cost(request: EstimateModel):
 
 
 @app.post("/api/analyze")
-async def analyze_tradeoffs(request: RequestModel):
+async def analyze_tradeoffs(request: RequestModel, ai_council: AICouncil = Depends(get_ai_council)):
     """Analyze cost-quality trade-offs."""
     try:
         analysis = ai_council.analyze_tradeoffs(request.query)
@@ -180,6 +183,7 @@ async def analyze_tradeoffs(request: RequestModel):
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""
     await websocket.accept()
+    ai_council: AICouncil = websocket.app.state.ai_council
     
     try:
         while True:
