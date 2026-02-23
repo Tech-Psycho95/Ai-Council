@@ -319,7 +319,7 @@ router.post('/forgot-password', [
     }
 
     const { email } = req.body;
-    const ipAddress = req.ip || req.socket.remoteAddress;
+    const ipAddress = req.ip || req.socket?.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
     // Check rate limit (max 3 per hour per email)

@@ -76,7 +76,7 @@ rateLimitSchema.statics.logAttempt = async function(email, action, ipAddress, us
 };
 
 // Static method to get recent attempts for security monitoring
-rateLimitSchema.statics.getRecentAttempts = async function(email, action, hours = 24) {
+rateLimitSchema.statics.getRecentAttempts = async function(email, action, hours = 1) {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
   
   return this.find({
