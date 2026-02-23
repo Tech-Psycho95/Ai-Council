@@ -38,16 +38,29 @@ rateLimitSchema.index({ email: 1, action: 1, createdAt: 1 });
 rateLimitSchema.statics.checkRateLimit = async function(email, action, maxAttempts = 3, windowMs = 3600000) {
   const windowStart = new Date(Date.now() - windowMs);
   
-  const count = await this.countDocuments({
+  const requests = await this.find({
     email: email.toLowerCase(),
     action,
     createdAt: { $gte: windowStart }
-  });
+  }).sort({ createdAt: 1 }).limit(maxAttempts);
+  
+  const count = requests.length;
+  
+  // Calculate resetAt: when the oldest request in the window expires
+  let resetAt;
+  if (count === 0) {
+    // No requests in window, so rate limit would reset windowMs from now
+    resetAt = new Date(Date.now() + windowMs);
+  } else {
+    // Oldest request determines when the window will have room again
+    const oldestTimestamp = requests[0].createdAt.getTime();
+    resetAt = new Date(oldestTimestamp + windowMs);
+  }
   
   return {
     allowed: count < maxAttempts,
     remaining: Math.max(0, maxAttempts - count),
-    resetAt: new Date(windowStart.getTime() + windowMs)
+    resetAt
   };
 };
 

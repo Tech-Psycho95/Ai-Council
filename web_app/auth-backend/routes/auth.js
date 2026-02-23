@@ -319,7 +319,7 @@ router.post('/forgot-password', [
     }
 
     const { email } = req.body;
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
     // Check rate limit (max 3 per hour per email)
@@ -364,8 +364,13 @@ router.post('/forgot-password', [
     // Create reset URL
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
 
-    // Send email
-    await sendPasswordResetEmail(email, resetUrl, user.name);
+    // Send email - wrap in try-catch to prevent account enumeration via error responses
+    try {
+      await sendPasswordResetEmail(email, resetUrl, user.name);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Don't change response - prevents account enumeration
+    }
 
     res.json({
       success: true,
@@ -418,7 +423,7 @@ router.post('/reset-password', [
     }
 
     const { token, password } = req.body;
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    const ipAddress = req.ip || req.socket?.remoteAddress || (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : undefined);
 
     // Validate password strength
     const passwordValidation = validatePasswordStrength(password);
